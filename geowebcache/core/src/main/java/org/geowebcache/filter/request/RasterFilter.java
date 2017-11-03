@@ -148,11 +148,14 @@ public abstract class RasterFilter extends RequestFilter {
 
         int zoomDiff = 0;
 
-        // Three scenarios below:
-        // 1. z is too low , upsample if resampling is enabled
-        // 2. z is within range, downsample one level and apply
-        // 3. z is too large , downsample
-        if (zoomStart != null && idx[2] < zoomStart) {
+        // Two scenarios below:
+        // 1. z is outside the range, nothing necessary
+        // 2. z is too low , upsample if resampling is enabled
+        if ((zoomStop != null && zoomStop < idx[2]) || (zoomStart != null && zoomStart > idx[2])) {
+            //Zoomlevel is out of bounds of the filter
+            return;
+        
+        } else if (zoomStart != null && idx[2] < zoomStart) {
             if (resample == null || !resample) {
                 // Filter does not apply, zoomlevel is too low
                 return;
@@ -163,19 +166,8 @@ public abstract class RasterFilter extends RequestFilter {
                 idx[1] = idx[1] << (-1 * zoomDiff);
                 idx[2] = zoomStart;
             }
-        } else if (idx[2] < zoomStop) {
-            // Sample one level higher
-            idx[0] = idx[0] * 2;
-            idx[1] = idx[1] * 2;
-            idx[2] = idx[2] + 1;
-        } else {
-            // Reduce to highest supported resolution
-            zoomDiff = (int) (idx[2] - zoomStop);
-            idx[0] = idx[0] >> zoomDiff;
-            idx[1] = idx[1] >> zoomDiff;
-            idx[2] = zoomStop;
         }
-
+        
         if (matrices == null || matrices.get(gridSetId) == null
                 || matrices.get(gridSetId)[(int) idx[2]] == null) {
             try {
@@ -188,7 +180,9 @@ public abstract class RasterFilter extends RequestFilter {
                                 + ", please check the logs");
             }
         }
-
+        
+        
+        
         if (zoomDiff == 0) {
             if (!lookup(convTile.getGridSubset(), idx)) {
                 if (debug != null && debug) {
